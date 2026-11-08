@@ -1,0 +1,26 @@
+{
+  "skill_name": "skill-bug-report",
+  "evals": [
+    {
+      "id": 1,
+      "name": "local-skill-full-flow",
+      "prompt": "我刚才用 systematic-improve 技能处理需求时，发现它违反了“一次只问一个问题”的规则，一次抛了好几个问题。帮我给 systematic-improve 报个 bug。测试用例文件在 /tmp/test-case-systematic-improve.md，期望输出是：步骤二每次只问一个问题。测试用例请归档到 /Users/chen/Project/all-vibe-coding-skill/test-case/systematic-improve/ 目录（这个目录不提交 git，命名用日期+描述），然后把 issue 提到它对应的 GitHub 仓库。",
+      "expected_output": "定位到 systematic-improve（本地仓库 neilChenXie/all-vibe-coding-skill），归档测试用例到指定目录并在 config.md 记录规则，通过浏览器上传测试用例附件拿到 user-attachments 链接，用 gh issue create 创建 issue 并返回 URL。",
+      "files": ["/tmp/test-case-systematic-improve.md"]
+    },
+    {
+      "id": 2,
+      "name": "other-local-repo",
+      "prompt": "我用 pdf-to-md 把一份带合并单元格的 PDF 转成 markdown，表格列数从 3 列变成 5 列，表头全错位了。帮我给 pdf-to-md 提个 issue。测试用例在 /tmp/test-case-pdf-to-md.md，期望输出是保留原本 3 列结构的 markdown 表格。测试用例归档到 /Users/chen/Project/all-file-to-md/test-case/pdf-to-md/，命名用日期+描述，不提交 git。",
+      "expected_output": "定位到 pdf-to-md → 本地仓库 neilChenXie/all-file-to-md，首次遇到该仓库时把测试用例规则写入 config.md 并归档，浏览器上传附件，gh issue create 创建 issue。",
+      "files": ["/tmp/test-case-pdf-to-md.md"]
+    },
+    {
+      "id": 3,
+      "name": "non-local-skill",
+      "prompt": "find-skills 这个技能搜不到中文技能，我搜“把 docx 转成 markdown 的技能”时它返回空结果。帮我给它报个 bug。测试用例在 /tmp/test-case-find-skills.md，期望输出是能返回 docx-to-md 相关的技能结果。",
+      "expected_output": "识别出 find-skills 非本地维护（无 .git），从 ~/.agents/.skill-lock.json 找到上游 vercel-labs/skills；因为不是用户自己的仓库，应向用户确认或输出 issue 草稿，而不是直接往别人仓库提 issue。",
+      "files": ["/tmp/test-case-find-skills.md"]
+    }
+  ]
+}
