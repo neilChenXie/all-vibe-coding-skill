@@ -2,6 +2,8 @@
 
 test-case/
 skill-bug-report-workspace/
+# 由 config.example.md 复制而来的本地配置（含本机绝对路径）
+skills/skill-bug-report/config.md
 
 # 技能打包产物
 *.skill
