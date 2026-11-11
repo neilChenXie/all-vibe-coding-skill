@@ -1,0 +1,33 @@
+{
+  "skill_name": "deal-git-issue",
+  "evals": [
+    {
+      "id": 1,
+      "name": "full-loop-github-gh",
+      "prompt": "帮我处理一条 issue。项目在 /Users/chen/Project/pdf-to-md，test-case 配好了，远端是 github。",
+      "expected_output": "跑 issue_kit.py context 拿到 repo_slug 与 test_case 配置；自动列出 open issue 按编号升序挑第一条（跳过带 status:working 与 issues.yaml 中已登记的），打印选中结果；只打 status:working 标签；在 issues.yaml 建立 issue↔用例映射；调用 systematic-improve 让用户选实施路径并实施；最后把样本、清单条目、断言写进 test-case/ 并跑 run_cases.py，map-upsert 改 done 且 map-check 退出码 0。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "no-cli-fallback",
+      "prompt": "处理一下 all-file-to-md 仓库的 issue，我这台机器没装 gh。",
+      "expected_output": "context 显示 cli.available=false；有 GITHUB_TOKEN 时改用 curl.exe 走 REST（Windows 上不能用 curl 别名），无 token 时降级为让用户贴 issue 正文、并在回报里如实说明未能自动打标签，不编造 issue 内容和标签状态。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "missing-test-case-config",
+      "prompt": "把 docx-to-md 那个 issue 处理掉。",
+      "expected_output": "context 返回 test_case.exists=false 或 data_root_source 为默认的 test-case/.data；技能应停下来，说明需要先跑 setup-test-case 建骨架/补 config.local.yaml，而不是自己编一个样本路径或跳过用例环节直接改代码。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "existing-mapping-reuse",
+      "prompt": "继续处理 #42 那条带合并单元格的 PDF 转换问题。",
+      "expected_output": "issues.yaml 已有 #42 记录时沿用其 case_ids 与 data_dir，不重复新建用例；若其 state 为 working 则跳过第 2 步的自动挑选直接沿用；最终把该条更新为 done 并补全 case_ids，map-check 通过。",
+      "files": []
+    }
+  ]
+}
