@@ -1,6 +1,6 @@
-# skill-bug-report 本地配置（示例模板）
+# report-skill-bug 本地配置（示例模板）
 
-> 本文件是模板，不含任何本机信息。首次使用 skill-bug-report 时，把它复制为同目录下的 `config.md`（`config.md` 已被仓库 `.gitignore` 忽略，不会提交），再在其中记录各仓库的测试用例归档规则。
+> 本文件是模板，不含任何本机信息。首次使用 report-skill-bug 时，把它复制为同目录下的 `config.md`（`config.md` 已被仓库 `.gitignore` 忽略，不会提交），再在其中记录各仓库的测试用例归档规则。
 >
 > 规则：某个仓库首次被用于报 bug、且 `config.md` 中还没有它的记录时，先问用户三个问题——测试用例存放在哪、怎么命名、是否提交到 git——然后把答案追加到 `config.md`，再按规则归档。
 

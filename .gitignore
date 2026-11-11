@@ -1,10 +1,11 @@
 # 本项目
 
 test-case/
-skill-bug-report-workspace/
+report-skill-bug-workspace/
 # 由 config.example.md 复制而来的本地配置（含本机绝对路径）
-skills/skill-bug-report/config.md
+skills/report-skill-bug/config.md
 skills/ai-correction-journal/config.md
+skills/setup-test-case/config.md
 
 # 技能打包产物
 *.skill

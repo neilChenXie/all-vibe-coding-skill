@@ -1,5 +1,5 @@
 ---
-name: skill-bug-report
+name: report-skill-bug
 description: 当用户使用某个 SKILL 完成某件事后发现问题（输出错误、流程缺陷、结果不符合预期），想把问题、建议的解决方案、测试用例文件及期望输出整理成 GitHub issue 提交到该 SKILL 的 git 仓库时使用；也用于把测试用例归档到本地并按规则维护 config.md。用户说"报个 bug"、"反馈问题"、"给这个 skill 提 issue"、"把测试用例上传到仓库 issue"、"这个 skill 有问题"、"帮我给刚才那个 skill 提个 issue"时触发。
 ---
 
@@ -26,7 +26,7 @@ description: 当用户使用某个 SKILL 完成某件事后发现问题（输出
 
 "上面使用的这个 SKILL"指当前对话里刚被使用或加载过的 SKILL。定位依据，按可靠性排序：
 
-1. 对话中最近的 `<skill_content name="...">` 块、"加载/使用了 xxx 技能"的记录——排除 skill-bug-report 自己
+1. 对话中最近的 `<skill_content name="...">` 块、"加载/使用了 xxx 技能"的记录——排除 report-skill-bug 自己
 2. 用户消息里明确点名的 skill
 3. 对话里出现过多个候选、无法判断时，列出候选让用户选
 
@@ -35,7 +35,7 @@ description: 当用户使用某个 SKILL 完成某件事后发现问题（输出
 ## 第 2 步：定位 skill 路径与云端仓库
 
 ```bash
-python3 "<skill-bug-report 目录>/scripts/locate_target.py" --skill "<skill 名或路径>"
+python3 "<report-skill-bug 目录>/scripts/locate_target.py" --skill "<skill 名或路径>"
 ```
 
 脚本输出 JSON，关键字段：

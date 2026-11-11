@@ -1,0 +1,33 @@
+{
+  "skill_name": "setup-test-case",
+  "evals": [
+    {
+      "id": 1,
+      "name": "first-run-no-config",
+      "prompt": "帮我给这个项目建一套测试用例，样本我想放仓库外面。项目在 /Users/chen/code/my-app。",
+      "expected_output": "检测到本 skill 目录下没有 config.md，明确告知用户这是本机第一次运行，先确认三件事（全局根目录、存储方式、分层模板）并写入 config.md，然后才进入项目探测与位置推荐；最终经用户确认后生成项目内 test-case/ 与库外样本目录，两侧各有 README.md 说明归档与执行规则。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "config-exists-reuse-path",
+      "prompt": "给 my-app 建 test-case，本机之前应该配过了。",
+      "expected_output": "读到已存在的 config.md，按其中的全局根目录与分层模板推荐 <root>/me/my-app，并在回报里说明「沿用已有登记」；生成前仍列出四项确认清单（项目根、骨架目录、样本库路径、将生成的文件），用户确认后才执行 scaffold.py。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "data-root-inside-project",
+      "prompt": "给 /Users/chen/code/my-app 建 test-case，样本就放项目里的 test-case/data/ 吧。",
+      "expected_output": "指出样本库放在项目目录内等于样本进 git，会失去「样本在库外」的意义；默认拒绝并由 scaffold.py 拦截，提示换一个库外路径；只有在用户明确同意并加 --allow-inside 时才继续。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "existing-test-case-dir",
+      "prompt": "给 /Users/chen/code/my-app 建 test-case，之前好像建过一半。",
+      "expected_output": "探测到 test-case/ 已存在且非空，列出已有文件，告知覆盖风险并要求用户确认；用户确认后才加 --force，未确认时不动手。",
+      "files": []
+    }
+  ]
+}

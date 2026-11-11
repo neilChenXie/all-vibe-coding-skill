@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "project": "{{PROJECT_SLUG}}",
+  "project_name": "{{PROJECT_NAME}}",
+  "created_at": "{{CREATED_AT}}",
+  "data_root_env": "TESTCASE_DATA",
+  "_note": "所有路径都相对数据根书写，不要写绝对路径；数据根本身记在 config.local.json（不入仓）。",
+  "cases": []
+}

@@ -1,0 +1,44 @@
+#!/bin/sh
+# 兜底保险：阻止原始样本与大文件误入版本库。
+#
+# 安装（在项目根执行）：
+#   cp test-case/runners/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 临时绕过（不推荐）：
+#   git commit --no-verify
+
+LIMIT=${TESTCASE_SIZE_LIMIT:-5242880}   # 默认 5 MB，可用环境变量覆盖
+FLAG=$(mktemp)
+trap 'rm -f "$FLAG"' EXIT
+
+git diff --cached --name-only --diff-filter=ACM | while IFS= read -r f; do
+  [ -n "$f" ] || continue
+
+  # fixtures/ 下的脱敏小样本放行
+  case "$f" in
+    */fixtures/*|fixtures/*) continue ;;
+  esac
+
+  # 原始文档与压缩包一律拦截，不论大小
+  case "$f" in
+    *.docx|*.doc|*.pdf|*.zip|*.7z|*.rar)
+      echo "[BLOCK] $f —— 原始样本不入仓，请放到样本库（见 test-case/README.md）"
+      echo x >> "$FLAG"
+      continue
+      ;;
+  esac
+
+  [ -f "$f" ] || continue
+  size=$(wc -c < "$f" 2>/dev/null || echo 0)
+  if [ "$size" -gt "$LIMIT" ]; then
+    echo "[BLOCK] $f —— $((size / 1024 / 1024)) MB，超过上限；大文件请走样本库"
+    echo x >> "$FLAG"
+  fi
+done
+
+if [ -s "$FLAG" ]; then
+  echo ""
+  echo "提交已中止。若确属入库内容，请改用 fixtures/ 下的脱敏小样本，或用 --no-verify 强行提交。"
+  exit 1
+fi
+
+exit 0
