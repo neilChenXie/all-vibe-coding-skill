@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "project": "deal-git-issue",
+  "project_name": "deal-git-issue",
+  "created_at": "2026-11-24",
+  "data_root_env": "TESTCASE_DATA",
+  "_note": "所有路径都相对数据根书写，不要写绝对路径；数据根本身记在 config.local.json（不入仓）。",
+  "cases": [
+    {
+      "id": "tc-subdir-testcase",
+      "title": "多 skill 仓库下用例库不在仓库根时：定位给出候选、写入拒绝建目录、校验不假绿",
+      "input": "tc-subdir-testcase/input.md",
+      "run": "python test-case/fixtures/tc-subdir-testcase/probe.py",
+      "output": "tc-subdir-testcase/output.txt",
+      "assert": "expected/tc-subdir-testcase.assert.json",
+      "notes": "issue #2；探针在临时沙箱 git 仓库里跑 9 个场景，产物只有布尔值与相对路径"
+    }
+  ]
+}

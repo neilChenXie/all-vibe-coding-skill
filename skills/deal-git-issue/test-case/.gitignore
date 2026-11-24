@@ -1,0 +1,22 @@
+# 样本与产物一律不入仓
+.data/
+config.local.json
+
+# 原始文档与压缩包
+*.docx
+*.doc
+*.pdf
+*.zip
+*.7z
+*.rar
+
+# 大体积媒体
+*.psd
+*.mp4
+*.mov
+
+# 但 fixtures/ 下的脱敏小样本允许入仓
+!fixtures/**/*.docx
+!fixtures/**/*.doc
+!fixtures/**/*.pdf
+!fixtures/**/*.zip

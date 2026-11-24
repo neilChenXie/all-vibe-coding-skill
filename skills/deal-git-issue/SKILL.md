@@ -1,28 +1,50 @@
 ---
 name: deal-git-issue
-description: 当用户想"把 git 云仓库里的一条 issue 从头处理到尾"时使用：自动从远端挑一条未处理 issue 并只打上 working 标签，读 test-case/config.local.yaml 定位测试用例位置，把 issue 与用例的对应关系写进 test-case/issues.yaml，调用 systematic-improve 定下优化方案并实施，最后把用例回填进 test-case/（样本、清单、断言）并跑校验。触发词：处理 issue、领一个 issue、按 issue 优化、把这条 issue 修掉、issue 转测试用例、issue 闭环、deal-git-issue。
+description: 当用户想"把 git 云仓库里的一条 issue 从头处理到尾"时使用：先定位 test-case/ 在哪一层（多 skill 仓库常不在仓库根，需 --project 指定），再自动从远端挑一条未处理 issue 并只打上 working 标签，读 config.local 定位测试用例位置，把 issue 与用例的对应关系写进 test-case/issues.yaml，调用 systematic-improve 定下优化方案并实施，最后把用例回填进 test-case/（样本、清单、断言）并跑校验。触发词：处理 issue、领一个 issue、按 issue 优化、把这条 issue 修掉、issue 转测试用例、issue 闭环、deal-git-issue。
 ---
 
 # deal-git-issue
 
-一条 issue 走完全程：**选中 → 标记 → 对应用例 → 定方案 → 实施 → 用例入库**。
+一条 issue 走完全程：**定位用例库 → 选中 → 标记 → 对应用例 → 定方案 → 实施 → 用例入库**。
 
 ```
-第1步 预检        第2步 选 issue     第3步 打 label
-（本地能不能干）    （远端拿一条）      （status:working）
-      ↓                 ↓                  ↓
-第6步 用例入库    第5步 定方案并实施   第4步 确认用例对应
-（回填 + 校验）    （systematic-improve）（写 issues.yaml）
+第1步 定位用例库     第2步 预检          第3步 选 issue      第4步 打 label
+（test-case 在哪） →（本地能不能干） → （远端拿一条） → （status:working）
+                                                               ↓
+第7步 用例入库    ← 第6步 定方案并实施 ← 第5步 确认用例对应
+（回填 + 校验）      （systematic-improve）（写 issues.yaml）
 ```
 
 每一步都有明确的结束标志；任一步达不到，停下来如实说明，不要带着缺口往下走。
 
-## 第 1 步：本地预检
+## 第 1 步：定位用例库
+
+用例库不一定在仓库根。多 skill 仓库里通常是 `skills/<skill>/test-case/`，此时**后续每条 `issue_kit.py` 命令都要带 `--project <用例库所在层>`**：它指向含 `test-case/` 的那一层目录，不是 `test-case/` 本身；且 `--project` 是全局参数，必须写在子命令**之前**。
+
+先查它到底在哪：
+
+```bash
+git ls-files --cached --others --exclude-standard -- '*test-case/manifest.*'
+```
+
+按输出判定：
+
+| 输出 | 结论 |
+| --- | --- |
+| 只有 `test-case/manifest.*` | 用例库在仓库根，后面的命令**不带** `--project` |
+| 形如 `skills/<skill>/test-case/manifest.*` | 在子目录，后面的命令统一带 `--project skills/<skill>` |
+| 多条 | 本次 issue 属于哪个 skill 就用哪一层；分不清就把候选列给用户问一句，不要猜 |
+| 一条都没有 | 该项目还没有用例库，让用户先跑 `setup-test-case`，**停在这里** |
+
+交叉验证：`context` 输出的 `test_case.exists`。根下没有时它会给出 `test_case.candidates`（含各自的 `project` / `manifest` / `case_count` / `data_root`），挑与 issue 对应的那条，把 `project` 的值用作 `--project`。脚本**不会**替你选，也不会替你建目录——`map-upsert` / `map-check` 定位不到用例库时直接以退出码 2 结束。
+
+## 第 2 步：本地预检
 
 先预检再打标签：本地缺配置时就把 issue 标成 working，等于白占坑，别人看到也不会再碰。
 
 ```bash
-python "<本 skill 目录>/scripts/issue_kit.py" context
+python "<本 skill 目录>/scripts/issue_kit.py" --project <用例库所在层> context
+# 用例库在仓库根时，省略 --project
 ```
 
 输出 JSON，只用它回答四个问题，不要整段复述给用户：
@@ -36,13 +58,14 @@ python "<本 skill 目录>/scripts/issue_kit.py" context
 
 停下来的条件（满足任一就停，不要自行脑补补齐）：
 
-- `test_case.exists: false` → 项目没有 `test-case/`，先让用户跑 `setup-test-case`。
+- `test_case.exists: false` 且 `candidates` **有内容** → 不是没建用例库，是 `--project` 没指对；按候选的 `project` 重跑，不要劝用户去建骨架。
+- `test_case.exists: false` 且 `candidates` 为空 → 项目确实没有 `test-case/`，先让用户跑 `setup-test-case`。
 - `test_case.data_root_source` 是 `default:test-case/.data` → 只是兜底值，`config.local.yaml` 没配好，先让用户确认数据根。
 - `repo_slug` 为空 → 定位不到云仓库，问用户 issue 在哪个仓库。
 
 `test_case.warnings` 里有内容时，挑与本次相关的念给用户（例如"数据根落在项目内，样本可能进 git"），不要全量转述。
 
-## 第 2 步：自动选中一条 issue
+## 第 3 步：自动选中一条 issue
 
 **不需要用户挑**，按下面的顺序取第一条，取到即开工：
 
@@ -64,14 +87,14 @@ python "<本 skill 目录>/scripts/issue_kit.py" context
 
 列表为空、或挑不出符合条件的一条 → 停，告诉用户"没有可处理的 open issue"，并把 `working`/`done` 里未被关闭的编号列出来，建议先收尾。
 
-## 第 3 步：标记 working
+## 第 4 步：标记 working
 
 只做一件事：给这条 issue 打上 `status:working` 标签。标签不存在就先创建，再打。
 
 - 不指派、不评论、不建分支、不改里程碑——用户明确选的就是"仅打 label"。
 - 打标签失败（无权限、仓库禁用标签）时：如实写"未能标记 working"，继续往下走，**不要**用评论代替，也不要反复重试。
 
-## 第 4 步：确认 issue 与测试用例的对应关系
+## 第 5 步：确认 issue 与测试用例的对应关系
 
 按下面顺序找，找到即停：
 
@@ -85,20 +108,22 @@ python "<本 skill 目录>/scripts/issue_kit.py" context
 确定后立刻落盘，让中断也能恢复：
 
 ```bash
-python "<本 skill 目录>/scripts/issue_kit.py" map-upsert \
+python "<本 skill 目录>/scripts/issue_kit.py" --project <用例库所在层> map-upsert \
   --issue <编号> --url "<issue 链接>" --title "<原标题>" \
   --platform <platform> --state working \
   --case-id <用例id> --data-dir <相对数据根的目录>
 ```
 
-再向用户说明一句对应关系（"issue #42 ↔ 用例 `tc-merge-cells`"），然后进入第 5 步。
+`map-upsert` 只写进已定位到的 `test-case/`。定位不到时它会以退出码 2 结束并列出候选，此时回到第 1 步确认 `--project`，不要重试同一条命令。
 
-## 第 5 步：调用 systematic-improve 定方案并实施
+再向用户说明一句对应关系（"issue #42 ↔ 用例 `tc-merge-cells`"），然后进入第 6 步。
+
+## 第 6 步：调用 systematic-improve 定方案并实施
 
 用 `use_skill` 加载 `systematic-improve`，按它的流程执行。把下面三样作为它的「步骤一：全局了解项目情况」的输入材料，不要让它重新摸索：
 
 - 本 issue 的正文与讨论；
-- 第 4 步确定的用例对应关系；
+- 第 5 步确定的用例对应关系；
 - `test-case/README.md` 里的用例规则（新增/刷新基线的纪律）。
 
 两处衔接要求：
@@ -108,9 +133,9 @@ python "<本 skill 目录>/scripts/issue_kit.py" map-upsert \
 
 systematic-improve 未安装时，按同样的骨架自行执行：了解项目 → 澄清目标 → 确认方案 → 确认思路 → 用户选实施路径 → 实施。此时要显式告诉用户"systematic-improve 未安装，已用等价流程替代"。
 
-实施完成后回到本流程第 6 步，不要就此结束。
+实施完成后回到本流程第 7 步，不要就此结束。
 
-## 第 6 步：用例入库并回填
+## 第 7 步：用例入库并回填
 
 把这次修复的证据沉淀进 `test-case/`，四件事都要做：
 
@@ -122,13 +147,13 @@ systematic-improve 未安装时，按同样的骨架自行执行：了解项目 
 然后回填映射并自检：
 
 ```bash
-python "<本 skill 目录>/scripts/issue_kit.py" map-upsert \
+python "<本 skill 目录>/scripts/issue_kit.py" --project <用例库所在层> map-upsert \
   --issue <编号> --state done --case-id <用例id> --data-dir <相对目录>
 
-python "<本 skill 目录>/scripts/issue_kit.py" map-check
+python "<本 skill 目录>/scripts/issue_kit.py" --project <用例库所在层> map-check
 ```
 
-`map-check` 退出码非 0 就按提示补，不要带着不一致收工。
+`map-check` 退出码非 0 就按提示补，不要带着不一致收工。退出码语义：`0` 一致；`1` 有记录对不上（`case_ids` 不在清单里、清单缺失、数据目录不存在）；`2` 用例库没定位到——回到第 1 步确认 `--project`，不是用例的问题。
 
 字段细节、两种清单格式的写法、断言与命名规则见 `references/test-case-mapping.md`。
 
@@ -138,9 +163,9 @@ python "<本 skill 目录>/scripts/issue_kit.py" map-check
 
 | 中断点 | 必须做的事 |
 | --- | --- |
-| 第 3 步之后失败 | 说明失败原因；用户确认放弃时，把 `status:working` 标签摘掉（`gh issue edit --remove-label`），避免占坑 |
-| 第 4 步之后失败 | 把 `issues.yaml` 里该条改成 `state: dropped`，在 `notes` 写一句原因 |
-| 第 6 步校验不过 | 不要改成 `done`，保持 `working`，把失败输出贴给用户 |
+| 第 4 步之后失败 | 说明失败原因；用户确认放弃时，把 `status:working` 标签摘掉（`gh issue edit --remove-label`），避免占坑 |
+| 第 5 步之后失败 | 把 `issues.yaml` 里该条改成 `state: dropped`，在 `notes` 写一句原因 |
+| 第 7 步校验不过 | 不要改成 `done`，保持 `working`，把失败输出贴给用户 |
 
 任何情况下都不要谎报完成：没有跑出 PASS、没有 `map-check` 通过，就不能说"已闭环"。
 

@@ -1,6 +1,5 @@
 # 本项目
 
-test-case/
 report-skill-bug-workspace/
 # 由 config.example.md 复制而来的本地配置（含本机绝对路径）
 skills/report-skill-bug/config.md

@@ -1,0 +1,18 @@
+{
+  "id": "tc-subdir-testcase",
+  "title": "多 skill 仓库下用例库不在仓库根时：定位给出候选、写入拒绝建目录、校验不假绿",
+  "generated_at": "2026-11-24T16:54:59+08:00",
+  "generator": "test-case/runners/make_assert.py",
+  "input": {
+    "path": "tc-subdir-testcase/input.md",
+    "sha256": "6cf1f298c8fcb443520ebec0bb1904931987fda917ee708b1528b9a95a7181f0",
+    "bytes": 1621
+  },
+  "output": {
+    "type": "file",
+    "bytes": 599,
+    "sha256": "2b6efc876eaa8f971782d48e2c8350195377eadda243cb0b00b00e03f8055996",
+    "lines": 9,
+    "chars": 543
+  }
+}

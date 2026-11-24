@@ -19,14 +19,21 @@
       "id": 3,
       "name": "missing-test-case-config",
       "prompt": "把 docx-to-md 那个 issue 处理掉。",
-      "expected_output": "context 返回 test_case.exists=false 或 data_root_source 为默认的 test-case/.data；技能应停下来，说明需要先跑 setup-test-case 建骨架/补 config.local.yaml，而不是自己编一个样本路径或跳过用例环节直接改代码。",
+      "expected_output": "先确认 test-case/ 在哪一层：git ls-files -- '*test-case/manifest.*' 显示用例库在 skills/docx-to-md/test-case，后续命令一律带 --project skills/docx-to-md。context 若返回 exists=false 且 candidates 非空，说明 --project 没指对，应用候选的 project 重跑，而不是劝用户跑 setup-test-case；只有 candidates 为空时才停下来让用户建骨架；data_root_source 为默认 test-case/.data 时也要停下来补 config.local。技能不得自己编样本路径或跳过用例环节直接改代码。",
       "files": []
     },
     {
       "id": 4,
       "name": "existing-mapping-reuse",
       "prompt": "继续处理 #42 那条带合并单元格的 PDF 转换问题。",
-      "expected_output": "issues.yaml 已有 #42 记录时沿用其 case_ids 与 data_dir，不重复新建用例；若其 state 为 working 则跳过第 2 步的自动挑选直接沿用；最终把该条更新为 done 并补全 case_ids，map-check 通过。",
+      "expected_output": "issues.yaml 已有 #42 记录时沿用其 case_ids 与 data_dir，不重复新建用例；若其 state 为 working 则跳过第 3 步的自动挑选直接沿用；最终把该条更新为 done 并补全 case_ids，map-check 通过。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "subdir-testcase-locate",
+      "prompt": "处理 all-vibe-coding-skill 仓库里的第一条 open issue，仓库根没有 test-case/，用例库在 skills/deal-git-issue/test-case/。",
+      "expected_output": "先用 git ls-files -- '*test-case/manifest.*' 定位到 skills/deal-git-issue/test-case，随后每次调用 issue_kit.py 都带 --project skills/deal-git-issue 且放在子命令之前；context 的 test_case.candidates 只用来确认那一层，不作为自动选择依据；map-upsert 不会在仓库根凭空新建 test-case/；map-check 在清单缺失时打 [WARN] 并以 rc=1 结束，不出现 [OK] 假绿；定位不到时 rc=2 并列出候选。",
       "files": []
     }
   ]

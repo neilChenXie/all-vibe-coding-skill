@@ -8,8 +8,13 @@
   map-upsert  新增或更新一条记录（只改传入的字段）
   map-check   校验映射引用的用例是否都在清单里、数据目录是否存在
 
+用例库定位：一律以 `<--project 或 git 仓根>/test-case` 为准。该目录不存在时脚本不会替你
+创建，也不会擅自挑子目录里的用例库——`context` 只列出 candidates，写操作类命令（map-upsert
+/ map-check）直接以退出码 2 结束，由调用方显式补 `--project <用例库所在层>`。
+`--project` 是全局参数，必须写在子命令之前。
+
 只依赖标准库；装了 PyYAML 就用它解析，否则用内置最小解析器（只认本脚本写出的格式）。
-退出码：0 正常；1 查询/校验失败；2 参数或环境错误。
+退出码：0 正常；1 查询/校验失败（如清单缺失、case_ids 对不上）；2 参数或环境错误（如用例库没定位到）。
 """
 from __future__ import annotations
 
@@ -28,6 +33,11 @@ CONFIG_NAMES = ("config.local.yaml", "config.local.yml", "config.local.json",
 MANIFEST_NAMES = ("manifest.yaml", "manifest.yml", "manifest.json")
 MAP_NAME = "issues.yaml"
 STATES = ("working", "done", "dropped")
+TESTCASE_DIRNAME = "test-case"          # 用例库的固定目录名
+SCAN_MAX_DEPTH = 3                      # 候选扫描深度：<root>/<a>/<b>/test-case 算最深处
+SCAN_SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", ".venv", "venv", "env",
+                  "__pycache__", "dist", "build", ".idea", ".vscode", ".data"}
+CANDIDATE_LIMIT = 20                    # candidates 最多列这么多条，避免糊满屏幕
 PLATFORM_CLI = {"github": "gh", "gitlab": "glab"}
 CLI_TOKEN_ENV = {"github": ("GITHUB_TOKEN", "GH_TOKEN"), "gitlab": ("GITLAB_TOKEN", "GLAB_TOKEN")}
 
@@ -258,13 +268,84 @@ def case_ids_from_file(path: Path) -> list[str]:
 
 # ------------------------------------------------------------------ test-case 发现
 
+def _candidate_info(root: Path, tc: Path) -> dict | None:
+    """一个用例库候选：必须有 manifest，否则不算（空目录不算用例库）。"""
+    manifest = None
+    for name in MANIFEST_NAMES:
+        p = tc / name
+        if p.is_file():
+            manifest = p
+            break
+    if manifest is None:
+        return None
+    try:
+        project = tc.parent.relative_to(root).as_posix() or "."
+    except ValueError:
+        project = tc.parent.as_posix()
+    out: dict = {"project": project, "dir": str(tc), "manifest": str(manifest)}
+    try:
+        out["case_count"] = len(case_ids_from_file(manifest))
+    except Exception:  # noqa: BLE001 —— 候选清单不该因为一个坏文件整体失败
+        out["case_count"] = None
+    for name in CONFIG_NAMES:
+        cfg = tc / name
+        if not cfg.is_file():
+            continue
+        try:
+            data = yaml_load_file(cfg)
+        except Exception:  # noqa: BLE001
+            break
+        for key in ("data_root", "dataRoot", "root", "cases_root"):
+            if isinstance(data, dict) and data.get(key):
+                out["data_root"] = str(Path(str(data[key])).expanduser())
+                break
+        break
+    return out
+
+
+def find_candidates(root: Path) -> list[dict]:
+    """在 root 下面找「目录名是 test-case 且含 manifest」的用例库，深度 ≤ SCAN_MAX_DEPTH。"""
+    root = root.resolve()
+    found: list[dict] = []
+    for cur, dirs, _files in os.walk(root):
+        p = Path(cur)
+        try:
+            depth = len(p.relative_to(root).parts)
+        except ValueError:
+            dirs[:] = []
+            continue
+        dirs[:] = [d for d in dirs
+                   if d.lower() not in SCAN_SKIP_DIRS and not d.startswith(".")]
+        if depth and p.name == TESTCASE_DIRNAME:
+            cand = _candidate_info(root, p)
+            if cand:
+                found.append(cand)
+            dirs[:] = []          # 不往用例库内部继续找
+            continue
+        if depth >= SCAN_MAX_DEPTH:
+            dirs[:] = []
+    found.sort(key=lambda c: (len(Path(c["project"]).parts), c["project"]))
+    return found
+
+
 def discover_test_case(root: Path) -> dict:
-    info: dict = {"dir": str(root / "test-case"), "exists": (root / "test-case").is_dir(),
-                  "warnings": []}
-    tc = root / "test-case"
+    tc = root / TESTCASE_DIRNAME
     if not tc.is_dir():
-        info["warnings"].append("项目内没有 test-case/，应先运行 setup-test-case 建骨架")
+        candidates = find_candidates(root)
+        info: dict = {"dir": str(tc), "exists": False, "warnings": []}
+        if candidates:
+            info["candidates"] = candidates[:CANDIDATE_LIMIT]
+            info["candidates_total"] = len(candidates)
+            info["warnings"].append(
+                f"仓库根没有 test-case/，但发现 {len(candidates)} 个候选用例库；"
+                "用 --project <用例库所在层> 指定（--project 放在子命令之前）")
+            if len(candidates) > CANDIDATE_LIMIT:
+                info["warnings"].append(
+                    f"候选超过 {CANDIDATE_LIMIT} 个，只列前 {CANDIDATE_LIMIT} 条，其余请自行确认")
+        else:
+            info["warnings"].append("项目内没有 test-case/，应先运行 setup-test-case 建骨架")
         return info
+    info = {"dir": str(tc), "exists": True, "warnings": []}
 
     cfg_path, cfg = None, {}
     for name in CONFIG_NAMES:
@@ -324,7 +405,29 @@ def discover_test_case(root: Path) -> dict:
 # ------------------------------------------------------------------ 映射文件
 
 def map_path(root: Path) -> Path:
-    return root / "test-case" / MAP_NAME
+    return root / TESTCASE_DIRNAME / MAP_NAME
+
+
+def require_case_dir(root: Path, cmd: str) -> Path | None:
+    """写操作 / 校验类命令的前置条件：用例库必须已经存在，否则报错并列出候选。"""
+    tc = root / TESTCASE_DIRNAME
+    if tc.is_dir():
+        return tc
+    print(f"[错误] {cmd}：{root} 下没有 {TESTCASE_DIRNAME}/，不会替你创建", file=sys.stderr)
+    candidates = find_candidates(root)
+    if candidates:
+        print("发现以下候选用例库；用 --project <用例库所在层> 指定（--project 放在子命令之前）：",
+              file=sys.stderr)
+        for c in candidates[:CANDIDATE_LIMIT]:
+            count = c.get("case_count")
+            count_txt = "?" if count is None else str(count)
+            print(f"  --project {c['project']}    用例 {count_txt} 个    清单 {c['manifest']}",
+                  file=sys.stderr)
+        if len(candidates) > CANDIDATE_LIMIT:
+            print(f"  …共 {len(candidates)} 个候选，只列前 {CANDIDATE_LIMIT} 条", file=sys.stderr)
+    else:
+        print("该项目尚未建用例库，先运行 setup-test-case 建骨架。", file=sys.stderr)
+    return None
 
 
 def load_map(root: Path) -> list[dict]:
@@ -368,7 +471,9 @@ def dump_map(root: Path, entries: list[dict]) -> Path:
             if e.get(key):
                 lines.append(f"    {key}: {_q(e.get(key))}")
         lines.append(f"    updated: {_q(e.get('updated'))}")
-    p.parent.mkdir(parents=True, exist_ok=True)
+    if not p.parent.is_dir():
+        raise FileNotFoundError(
+            f"{p.parent} 不存在：映射只写进已有的用例库，不会凭空创建 {TESTCASE_DIRNAME}/")
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return p
 
@@ -450,6 +555,8 @@ def cmd_map_get(args) -> int:
 
 def cmd_map_upsert(args) -> int:
     root = Path(args.project).resolve() if args.project else project_root()
+    if require_case_dir(root, "map-upsert") is None:
+        return 2
     entries = load_map(root)
     target = None
     for e in entries:
@@ -489,6 +596,8 @@ def cmd_map_upsert(args) -> int:
 
 def cmd_map_check(args) -> int:
     root = Path(args.project).resolve() if args.project else project_root()
+    if require_case_dir(root, "map-check") is None:
+        return 2
     entries = load_map(root)
     if not entries:
         print("没有记录，跳过校验")
@@ -497,9 +606,10 @@ def cmd_map_check(args) -> int:
     known = set(tc.get("case_ids") or [])
     has_manifest = tc.get("manifest") is not None
     data_root = Path(tc.get("data_root") or ".")
-    if not has_manifest:
-        print("[跳过] 找不到用例清单，只校验数据目录；case_ids 无法核对")
     problems = 0
+    if not has_manifest:
+        print(f"[WARN] {tc.get('dir')} 里找不到用例清单，case_ids 无法核对")
+        problems += 1
     for e in entries:
         if e.get("state") == "dropped":
             continue
@@ -521,7 +631,9 @@ def cmd_map_check(args) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="deal-git-issue 辅助脚本")
-    ap.add_argument("--project", help="项目根，默认用 git 仓库根")
+    ap.add_argument("--project",
+                    help="用例库所在层（含 test-case/ 的那一层），默认用 git 仓库根；"
+                         "必须写在子命令之前")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("context", help="输出上下文 JSON").set_defaults(func=cmd_context)

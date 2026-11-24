@@ -1,0 +1,13 @@
+# issue ↔ 测试用例映射，由 deal-git-issue 维护。
+# 一条 issue 一条记录，按处理顺序排列（最早在上）；字段含义见 SKILL.md。
+version: 1
+issues:
+  - issue: 2
+    url: "https://github.com/neilChenXie/all-vibe-coding-skill/issues/2"
+    title: "[deal-git-issue] issue_kit.py 硬编码 <项目根>/test-case，多 skill 仓库下会误建根目录且 map-check 假绿"
+    platform: "github"
+    state: "done"
+    case_ids: ["tc-subdir-testcase"]
+    data_dir: "tc-subdir-testcase"
+    notes: "用例库定位改为一律显式 --project；map-upsert 不再凭空建目录；map-check 清单缺失时 rc=1"
+    updated: "2026-11-24"

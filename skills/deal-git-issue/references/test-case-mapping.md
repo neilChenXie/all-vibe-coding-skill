@@ -2,6 +2,8 @@
 
 ## 一、`test-case/issues.yaml`
 
+位置是 `<用例库所在层>/test-case/issues.yaml`。用例库不在仓库根时（多 skill 仓库常见，如 `skills/<skill>/test-case/`），`issue_kit.py` 的每条命令都要带 `--project <用例库所在层>`——它指向含 `test-case/` 的那一层，不是 `test-case/` 本身，且必须写在子命令之前。脚本不会替你猜这一层。
+
 由 `scripts/issue_kit.py` 写入，格式固定，**不要手改格式**（脚本用 Edit 之外的方式整文件重写，手改的缩进会被冲掉）。字段含义如下：
 
 | 字段 | 说明 |
@@ -70,7 +72,7 @@ JSON 形态：
 <data_root>/<case-id>/output.<ext>     # 期望产物（跑完与被测程序产出比对）
 ```
 
-- 数据根来自 `test-case/config.local.yaml` 的 `data_root`（`context` 输出的 `test_case.data_root`）。
+- 数据根来自 `<用例库所在层>/test-case/config.local.yaml`（或 `config.local.json`）的 `data_root`（`context` 输出的 `test_case.data_root`）。
 - 样本一律不进 git；`fixtures/` 只放脱敏小样本。
 - 大文件先裁到最小可复现片段；单份上限遵循项目 README。
 
@@ -93,7 +95,14 @@ python test-case/runners/run_cases.py --case <id>
 ## 六、一致性检查
 
 ```bash
-python "<本 skill 目录>/scripts/issue_kit.py" map-check
+python "<本 skill 目录>/scripts/issue_kit.py" --project <用例库所在层> map-check
+# 用例库在仓库根时省略 --project
 ```
 
-退出码 0 表示所有记录的 `case_ids` 都在清单里、`data_dir` 都真实存在。非 0 就按提示补齐，不要放着不管。
+| 退出码 | 含义 | 怎么办 |
+| --- | --- | --- |
+| 0 | 所有记录的 `case_ids` 都在清单里、`data_dir` 都真实存在 | 通过 |
+| 1 | 有记录对不上：`case_ids` 不在清单、清单缺失、数据目录不存在 | 按提示补齐，不要放着不管 |
+| 2 | 用例库没定位到（`--project` 指错，或项目还没建骨架） | 回到 SKILL.md 第 1 步，用候选列表确认那一层 |
+
+清单缺失时脚本打 `[WARN]` 并返回非 0——这是有意的：`case_ids` 从没被核对过就不算绿。
